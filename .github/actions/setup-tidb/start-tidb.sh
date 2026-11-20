@@ -16,6 +16,8 @@
 # `tiup playground` in the background and wait until it is ready.
 #
 # Usage: start-tidb.sh <tidb-version> [tiflash-count]
+#
+# Normally invoked through the setup-tidb action (action.yml in this directory).
 
 set -euo pipefail
 

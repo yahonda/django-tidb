@@ -72,8 +72,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libmemcached-dev zlib1g-dev
 
-      - name: Start TiDB
-        run: .github/scripts/start-tidb.sh ${{ matrix.tidb-version }}
+      - name: Setup TiDB
+        uses: ./.github/actions/setup-tidb
+        with:
+          tidb-version: ${{ matrix.tidb-version }}
 
       - name: Run tests
         run: tox
@@ -107,8 +109,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libmemcached-dev zlib1g-dev
 
-      - name: Start TiDB with TiFlash
-        run: .github/scripts/start-tidb.sh v8.5.8 1
+      - name: Setup TiDB with TiFlash
+        uses: ./.github/actions/setup-tidb
+        with:
+          tidb-version: v8.5.8
+          tiflash: 1
 
       - name: Hack for vector tests
         run: |
