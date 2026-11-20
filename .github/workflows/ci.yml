@@ -29,12 +29,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # Test the oldest and newest Python supported by the Django series
+        # against every TiDB version; Python versions in between are only
+        # tested against the latest TiDB (see `include`).
         python-version:
           - '3.12'
-          - '3.13'
           - '3.14'
         django-version:
-          - '6.0'
+          - '6.0.10'
         tidb-version:
           - 'v8.5.8'
           - 'v8.1.2'
@@ -47,8 +49,12 @@ jobs:
           # but it does not consider databases that do not support savepoints(TiDB < 6.2.0),
           # as a result, all `assertNumQueries` in test cases failed.
           # https://github.com/django/django/commit/798e38c2b9c46ab72e2ee8c33dc822f01b194b1e
-          - django-version: '6.0'
+          - django-version: '6.0.10'
             tidb-version: 'v5.4.3'
+        include:
+          - python-version: '3.13'
+            django-version: '6.0.10'
+            tidb-version: 'v8.5.8'
 
     name: py${{ matrix.python-version }}_tidb${{ matrix.tidb-version }}_django${{ matrix.django-version }}
     runs-on: ubuntu-latest
@@ -84,7 +90,7 @@ jobs:
         python-version:
           - '3.14'
         django-version:
-          - '6.0'
+          - '6.0.10'
 
     name: vector-py${{ matrix.python-version }}_django${{ matrix.django-version }}
     runs-on: ubuntu-latest
