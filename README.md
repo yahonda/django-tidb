@@ -41,6 +41,7 @@ To install django-tidb, you need to select the version that corresponds with you
 
 |django|django-tidb|install command|
 |:----:|:---------:|:-------------:|
+|v6.1.x|v6.1.x|`pip install 'django-tidb~=6.1.0'`|
 |v6.0.x|v6.0.x|`pip install 'django-tidb~=6.0.0'`|
 |v5.2.x|v5.2.x|`pip install 'django-tidb~=5.2.0'`|
 |v5.1.x|v5.1.x|`pip install 'django-tidb~=5.1.0'`|
@@ -211,9 +212,9 @@ Test.objects.alias(distance=CosineDistance('embedding', [3, 1, 2])).filter(dista
 - TiDB 6.2 and newer. TiDB before v6.2.0 does not support `SAVEPOINT`, which
   Django 4.2 and newer rely on. CI tests the
   [LTS releases](https://www.pingcap.com/tidb-release-support-policy/) from v6.5.
-- Django 6.0. For other Django versions, use the matching django-tidb release
+- Django 6.1. For other Django versions, use the matching django-tidb release
   (see [Installing django-tidb](#installing-django-tidb)).
-- Python 3.12 and newer, as required by Django 6.0.
+- Python 3.12 and newer, as required by Django 6.1.
 
 ## Test
 
@@ -229,7 +230,7 @@ you can use the command `deactivate` to exit from the virtual environment.
 run all integration tests.
 
 ```bash
-$ DJANGO_VERSION=6.0 python run_testing_worker.py
+$ DJANGO_VERSION=6.1.3 python run_testing_worker.py
 ```
 
 ## Migrate from previous versions

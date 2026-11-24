@@ -13,6 +13,8 @@
 
 import os
 
+from django.db.models.signals import class_prepared
+
 hosts = os.getenv("TIDB_HOST", "127.0.0.1")
 port = os.getenv("TIDB_PORT", 4000)
 user = os.getenv("TIDB_USER", "root")
@@ -58,3 +60,18 @@ SECRET_KEY = "django_tests_secret_key"
 PASSWORD_HASHERS = [
     "django.contrib.auth.hashers.MD5PasswordHasher",
 ]
+
+
+def _require_json_null_default(sender, **kwargs):
+    # model_fields.JSONNullDefaultModel uses db_default=JSONNull(), which TiDB
+    # can't create. Declare the feature it needs, so that the test runner
+    # doesn't create its table unless the server supports it. The tests that
+    # use it are skipped in DatabaseFeatures.django_test_skips.
+    if sender._meta.label == "model_fields.JSONNullDefaultModel":
+        sender._meta.required_db_features = [
+            *sender._meta.required_db_features,
+            "supports_json_null_default",
+        ]
+
+
+class_prepared.connect(_require_json_null_default)

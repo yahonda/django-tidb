@@ -42,7 +42,7 @@ jobs:
           - '3.13'
           - '3.14'
         django-version:
-          - '6.0.10'
+          - '6.1.3'
         # The latest patch release of each TiDB LTS series.
         # TiDB < 6.2.0 is not tested: it does not support savepoints, and
         # Django >= 4.2 (`debug_transaction`) makes all `assertNumQueries`
@@ -91,7 +91,7 @@ jobs:
         python-version:
           - '3.14'
         django-version:
-          - '6.0.10'
+          - '6.1.3'
 
     name: vector-py${{ matrix.python-version }}_django${{ matrix.django-version }}
     runs-on: ubuntu-latest
