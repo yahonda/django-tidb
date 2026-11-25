@@ -12,12 +12,12 @@
 # limitations under the License.
 
 import operator
+from functools import cached_property
 
 import django
 from django.db.backends.mysql.features import (
     DatabaseFeatures as MysqlDatabaseFeatures,
 )
-from django.utils.functional import cached_property
 
 
 class DatabaseFeatures(MysqlDatabaseFeatures):
