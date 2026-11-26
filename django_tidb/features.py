@@ -329,7 +329,15 @@ class DatabaseFeatures(MysqlDatabaseFeatures):
 
     @cached_property
     def supports_column_check_constraints(self):
-        return True
+        # TiDB < 7.2 ignores CHECK constraints. TiDB >= 7.2 enforces them only
+        # if tidb_enable_check_constraint is ON (OFF by default); otherwise it
+        # doesn't create them and only emits a warning.
+        # https://docs.pingcap.com/tidb/stable/constraints#check
+        if self.connection.tidb_version < (7, 2):
+            return False
+        with self.connection.cursor() as cursor:
+            cursor.execute("SELECT @@global.tidb_enable_check_constraint")
+            return bool(int(cursor.fetchone()[0]))
 
     @cached_property
     def supports_expression_defaults(self):
