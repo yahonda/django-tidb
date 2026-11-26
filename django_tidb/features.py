@@ -144,9 +144,7 @@ class DatabaseFeatures(MysqlDatabaseFeatures):
                 # Result of function ROUND(x, d) is different from MySQL
                 # https://github.com/pingcap/tidb/issues/26993
                 "db_functions.math.test_round.RoundTests.test_integer_with_negative_precision",
-                "db_functions.text.test_chr.ChrTests.test_transform",
                 "db_functions.text.test_chr.ChrTests.test_non_ascii",
-                "db_functions.text.test_chr.ChrTests.test_basic",
                 "db_functions.comparison.test_collate.CollateTests.test_collate_filter_ci",
                 # Unsupported modifying collation of column from 'utf8mb4_general_ci' to 'utf8mb4_bin'
                 # when index is defined on it.
