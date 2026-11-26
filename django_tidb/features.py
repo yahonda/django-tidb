@@ -138,9 +138,6 @@ class DatabaseFeatures(MysqlDatabaseFeatures):
                 "schema.tests.SchemaTests.test_autofield_to_o2o",
                 "update.tests.AdvancedTests.test_update_ordered_by_inline_m2m_annotation",
                 "update.tests.AdvancedTests.test_update_ordered_by_m2m_annotation",
-                # IntegrityError not raised
-                "constraints.tests.CheckConstraintTests.test_database_constraint",
-                "constraints.tests.CheckConstraintTests.test_database_constraint_unicode",
                 # Result of function ROUND(x, d) is different from MySQL
                 # https://github.com/pingcap/tidb/issues/26993
                 "db_functions.math.test_round.RoundTests.test_integer_with_negative_precision",
