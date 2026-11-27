@@ -15,8 +15,17 @@ from django.db.models.functions import Chr
 from django.db.models import options
 from django.db.migrations import state
 
+_mysql_chr = Chr.as_mysql
+
 
 def char(self, compiler, connection, **extra_context):
+    # The backend sets vendor = "mysql", so this replaces Chr.as_mysql for
+    # every MySQL-compatible connection in the process. Use Django's MySQL
+    # implementation for connections other than TiDB.
+    from .base import DatabaseWrapper
+
+    if not isinstance(connection, DatabaseWrapper):
+        return _mysql_chr(self, compiler, connection, **extra_context)
     # TiDB doesn't support utf16
     return self.as_sql(
         compiler,
