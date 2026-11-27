@@ -267,6 +267,13 @@ class DatabaseFeatures(MysqlDatabaseFeatures):
                         "migrations.test_commands.MigrateTests.test_migrate_syncdb_deferred_sql_executed_with_schemaeditor",
                         "schema.tests.SchemaTests.test_rename_column_renames_deferred_sql_references",
                         "schema.tests.SchemaTests.test_rename_table_renames_deferred_sql_references",
+                    }
+                }
+            )
+        if django.VERSION >= (6, 1) and self.connection.tidb_version < (6, 6):
+            skips.update(
+                {
+                    "tidb_before_66_django61": {
                         # These tests expect foreign key constraints to be created.
                         "migrations.test_commands.MigrateTests.test_migrate_syncdb_installed_truncated_db_model",
                         "migrations.test_operations.OperationTests.test_rename_model_with_self_referential_fk_collect_sql",
