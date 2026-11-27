@@ -148,23 +148,43 @@ start_once() {
   return 1
 }
 
-# Enforce CHECK constraints (TiDB >= 7.2 only; older versions do not have
-# this variable and do not support CHECK constraints at all).
-enable_check_constraints() {
+# Succeeds when TIDB_VERSION is at least <major>.<minor>.
+tidb_version_at_least() {
   local version="${TIDB_VERSION#v}"
   local major="${version%%.*}" rest="${version#*.}"
   local minor="${rest%%.*}"
-  if ((major > 7 || (major == 7 && minor >= 2))); then
-    mysql --host 127.0.0.1 --port 4000 --user root \
-      --execute "SET GLOBAL tidb_enable_check_constraint = ON"
-    echo "Enabled tidb_enable_check_constraint."
+  ((major > $1 || (major == $1 && minor >= $2)))
+}
+
+set_global() {
+  mysql --host 127.0.0.1 --port 4000 --user root \
+    --execute "SET GLOBAL $1 = $2"
+  echo "Set $1 = $2."
+}
+
+# Adjust global system variables for the Django test suite.
+configure_tidb() {
+  # Enforce CHECK constraints (TiDB >= 7.2 only; older versions do not have
+  # this variable and do not support CHECK constraints at all).
+  if tidb_version_at_least 7 2; then
+    set_global tidb_enable_check_constraint ON
   fi
+
+  # Django recreates the test databases for every test app run, issuing many
+  # ADD INDEX / ADD FOREIGN KEY statements on empty tables. The ingest-based
+  # fast reorg path costs ~2s per index there, so use the transactional
+  # backfill instead. Distributed execution requires fast reorg, so it must
+  # be turned off first.
+  if tidb_version_at_least 7 1; then
+    set_global tidb_enable_dist_task OFF
+  fi
+  set_global tidb_ddl_enable_fast_reorg OFF
 }
 
 for ((attempt = 1; attempt <= MAX_ATTEMPTS; attempt++)); do
   echo "Starting TiDB $TIDB_VERSION (tiflash=$TIFLASH_COUNT), attempt $attempt/$MAX_ATTEMPTS..."
   if start_once; then
-    enable_check_constraints
+    configure_tidb
     exit 0
   fi
   echo "Playground log:"
