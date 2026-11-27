@@ -36,6 +36,9 @@ def decode_vector(value):
     if isinstance(value, bytes):
         value = value.decode("utf-8")
 
+    if len(value) == 2:
+        return np.array([], dtype=np.float32)
+
     return np.array(value[1:-1].split(","), dtype=np.float32)
 
 

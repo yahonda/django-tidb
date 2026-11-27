@@ -80,3 +80,11 @@ class TiDBVectorFieldExplicitDimensionTests(TiDBVectorFieldTests):
 
 class TiDBVectorFieldWithAnnIndexTests(TiDBVectorFieldTests):
     model = DocumentWithAnnIndex
+
+
+class TiDBVectorFieldEmptyVectorTests(TestCase):
+    def test_create_get_empty(self):
+        obj = Document.objects.create(content="empty", embedding=[])
+        obj = Document.objects.get(pk=obj.pk)
+        self.assertTrue(np.array_equal(obj.embedding, np.array([])))
+        self.assertEqual(obj.embedding.dtype, np.float32)
