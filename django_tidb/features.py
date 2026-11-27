@@ -138,9 +138,6 @@ class DatabaseFeatures(MysqlDatabaseFeatures):
                 "schema.tests.SchemaTests.test_autofield_to_o2o",
                 "update.tests.AdvancedTests.test_update_ordered_by_inline_m2m_annotation",
                 "update.tests.AdvancedTests.test_update_ordered_by_m2m_annotation",
-                # IntegrityError not raised
-                "constraints.tests.CheckConstraintTests.test_database_constraint",
-                "constraints.tests.CheckConstraintTests.test_database_constraint_unicode",
                 # Result of function ROUND(x, d) is different from MySQL
                 # https://github.com/pingcap/tidb/issues/26993
                 "db_functions.math.test_round.RoundTests.test_integer_with_negative_precision",
@@ -329,7 +326,15 @@ class DatabaseFeatures(MysqlDatabaseFeatures):
 
     @cached_property
     def supports_column_check_constraints(self):
-        return True
+        # TiDB < 7.2 ignores CHECK constraints. TiDB >= 7.2 enforces them only
+        # if tidb_enable_check_constraint is ON (OFF by default); otherwise it
+        # doesn't create them and only emits a warning.
+        # https://docs.pingcap.com/tidb/stable/constraints#check
+        if self.connection.tidb_version < (7, 2):
+            return False
+        with self.connection.cursor() as cursor:
+            cursor.execute("SELECT @@global.tidb_enable_check_constraint")
+            return bool(int(cursor.fetchone()[0]))
 
     @cached_property
     def supports_expression_defaults(self):
