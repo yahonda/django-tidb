@@ -11,6 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from django.db.backends.ddl_references import Statement, Table
 from django.db.backends.mysql.schema import (
     DatabaseSchemaEditor as MysqlDatabaseSchemaEditor,
 )
@@ -20,6 +21,8 @@ class DatabaseSchemaEditor(MysqlDatabaseSchemaEditor):
     # Unsupported add column and foreign key in single statement
     # https://github.com/pingcap/tidb/issues/45474
     sql_create_column_inline_fk = None
+
+    sql_set_tiflash_replica = "ALTER TABLE %(table)s SET TIFLASH REPLICA 1"
 
     @property
     def sql_delete_check(self):
@@ -66,6 +69,44 @@ class DatabaseSchemaEditor(MysqlDatabaseSchemaEditor):
             self.execute(self._create_unique_sql(model, [field]))
         else:
             super().add_field(model, field)
+
+    def _set_tiflash_replica_sql(self, model):
+        return Statement(
+            self.sql_set_tiflash_replica,
+            table=Table(model._meta.db_table, self.quote_name),
+        )
+
+    def _has_tiflash_replica(self, model):
+        with self.connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT 1 FROM information_schema.tiflash_replica
+                WHERE table_schema = DATABASE() AND table_name = %s
+                    AND replica_count > 0
+                """,
+                [model._meta.db_table],
+            )
+            return cursor.fetchone() is not None
+
+    def _model_indexes_sql(self, model):
+        output = super()._model_indexes_sql(model)
+        # TiDB can't create a vector index on a table without a TiFlash
+        # replica. The table has just been created, so it has none.
+        if output and any(
+            getattr(index, "requires_tiflash_replica", False)
+            for index in model._meta.indexes
+        ):
+            output.insert(0, self._set_tiflash_replica_sql(model))
+        return output
+
+    def add_index(self, model, index):
+        # Don't change the TiFlash replica count of a table that already has a
+        # TiFlash replica.
+        if getattr(
+            index, "requires_tiflash_replica", False
+        ) and not self._has_tiflash_replica(model):
+            self.execute(self._set_tiflash_replica_sql(model))
+        super().add_index(model, index)
 
     def table_sql(self, model):
         sql, params = super().table_sql(model)

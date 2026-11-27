@@ -161,10 +161,15 @@ class VectorIndex(Index):
     ```
 
     Note:
-    Creating a vector index will automatically set the "TiFlash replica" to 1 in TiDB.
-    If you want to use high-availability columnar storage feature, use raw SQL instead.
+    A vector index requires a TiFlash replica of the table. If the table has
+    no TiFlash replica, creating a vector index sets its TiFlash replica count
+    to 1. An existing TiFlash replica count is kept.
 
     """
+
+    # The schema editor creates a TiFlash replica before creating the index if
+    # the table doesn't have one.
+    requires_tiflash_replica = True
 
     def __init__(
         self,
@@ -189,10 +194,9 @@ class VectorIndex(Index):
         )
         fields = None
         col_suffixes = None
-        # TODO: remove the tiflash replica setting statement from sql_template
-        #       after we support `ADD_TIFLASH_ON_DEMAND` in the `CREATE VECTOR INDEX ...`
-        sql_template = """ALTER TABLE %(table)s SET TIFLASH REPLICA 1;
-        CREATE VECTOR INDEX %(name)s ON %(table)s%(using)s (%(columns)s)%(extra)s"""
+        sql_template = (
+            "CREATE VECTOR INDEX %(name)s ON %(table)s%(using)s (%(columns)s)%(extra)s"
+        )
         return schema_editor._create_index_sql(
             model,
             fields=fields,

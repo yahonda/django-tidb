@@ -1,12 +1,16 @@
 import numpy as np
 from math import sqrt
+from django.db import connection, models
 from django.db.utils import OperationalError
-from django.test import TestCase
+from django.test import TestCase, TransactionTestCase
+from django.test.utils import CaptureQueriesContext, isolate_apps
 from django_tidb.fields.vector import (
     CosineDistance,
     L1Distance,
     L2Distance,
     NegativeInnerProduct,
+    VectorField,
+    VectorIndex,
 )
 
 from .models import Document, DocumentExplicitDimension, DocumentWithAnnIndex
@@ -80,3 +84,85 @@ class TiDBVectorFieldExplicitDimensionTests(TiDBVectorFieldTests):
 
 class TiDBVectorFieldWithAnnIndexTests(TiDBVectorFieldTests):
     model = DocumentWithAnnIndex
+
+
+@isolate_apps("tidb_vector")
+class VectorIndexSchemaTests(TransactionTestCase):
+    available_apps = []
+
+    def setUp(self):
+        class VectorIndexDocument(models.Model):
+            embedding = VectorField(dimensions=3)
+
+            class Meta:
+                app_label = "tidb_vector"
+
+        self.model = VectorIndexDocument
+        self.index = VectorIndex(CosineDistance("embedding"), name="idx_cos")
+
+    def tearDown(self):
+        with connection.schema_editor() as editor:
+            editor.delete_model(self.model)
+
+    def get_tiflash_replica_count(self):
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT replica_count FROM information_schema.tiflash_replica
+                WHERE table_schema = DATABASE() AND table_name = %s
+                """,
+                [self.model._meta.db_table],
+            )
+            row = cursor.fetchone()
+        return row[0] if row else None
+
+    def get_index_names(self):
+        with connection.cursor() as cursor:
+            return set(
+                connection.introspection.get_constraints(
+                    cursor, self.model._meta.db_table
+                )
+            )
+
+    def set_tiflash_replica_queries(self, queries):
+        return [q["sql"] for q in queries if "SET TIFLASH REPLICA" in q["sql"]]
+
+    def test_create_sql_is_single_statement(self):
+        with connection.schema_editor() as editor:
+            editor.create_model(self.model)
+            sql = str(self.index.create_sql(self.model, editor))
+        self.assertTrue(sql.startswith("CREATE VECTOR INDEX"), sql)
+        self.assertNotIn(";", sql)
+
+    def test_create_model_sets_tiflash_replica(self):
+        self.model._meta.indexes = [self.index]
+        with CaptureQueriesContext(connection) as ctx:
+            with connection.schema_editor() as editor:
+                editor.create_model(self.model)
+        self.assertEqual(len(self.set_tiflash_replica_queries(ctx.captured_queries)), 1)
+        self.assertEqual(self.get_tiflash_replica_count(), 1)
+        self.assertIn("idx_cos", self.get_index_names())
+
+    def test_add_index_sets_tiflash_replica(self):
+        with connection.schema_editor() as editor:
+            editor.create_model(self.model)
+        self.assertIsNone(self.get_tiflash_replica_count())
+        with CaptureQueriesContext(connection) as ctx:
+            with connection.schema_editor() as editor:
+                editor.add_index(self.model, self.index)
+        self.assertEqual(len(self.set_tiflash_replica_queries(ctx.captured_queries)), 1)
+        self.assertEqual(self.get_tiflash_replica_count(), 1)
+        self.assertIn("idx_cos", self.get_index_names())
+
+    def test_add_index_keeps_tiflash_replica(self):
+        with connection.schema_editor() as editor:
+            editor.create_model(self.model)
+            editor.execute(
+                "ALTER TABLE %s SET TIFLASH REPLICA 1"
+                % editor.quote_name(self.model._meta.db_table)
+            )
+        with CaptureQueriesContext(connection) as ctx:
+            with connection.schema_editor() as editor:
+                editor.add_index(self.model, self.index)
+        self.assertEqual(self.set_tiflash_replica_queries(ctx.captured_queries), [])
+        self.assertIn("idx_cos", self.get_index_names())
