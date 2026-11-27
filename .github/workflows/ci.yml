@@ -58,9 +58,18 @@ jobs:
           - 'v7.5.8'
           - 'v7.1.6'
           - 'v6.5.12'
+        include:
+          # Django's development version (the `main` branch), for an early
+          # warning about upcoming changes. It changes every day, so a
+          # failure here does not fail the workflow.
+          - python-version: '3.14'
+            django-version: 'main'
+            tidb-version: 'v8.5.8'
+            experimental: true
 
     name: py${{ matrix.python-version }}_tidb${{ matrix.tidb-version }}_django${{ matrix.django-version }}
     runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.experimental == true }}
 
     steps:
       - name: Checkout

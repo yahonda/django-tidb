@@ -16,10 +16,11 @@ TiDB database backend for Django.
 Requires mysqlclient: https://pypi.org/project/mysqlclient/
 """
 
+from functools import cached_property
+
 from django.db.backends.mysql.base import (
     DatabaseWrapper as MysqlDatabaseWrapper,
 )
-from django.utils.functional import cached_property
 
 # Some of these import MySQLdb, so import them after checking if it's installed.
 from .features import DatabaseFeatures
