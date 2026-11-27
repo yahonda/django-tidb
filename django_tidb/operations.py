@@ -14,6 +14,7 @@
 from django.db.backends.mysql.operations import (
     DatabaseOperations as MysqlDatabaseOperations,
 )
+from django.db.models.constants import OnConflict
 
 
 class DatabaseOperations(MysqlDatabaseOperations):
@@ -49,6 +50,19 @@ class DatabaseOperations(MysqlDatabaseOperations):
             prefix += " ANALYZE"
         prefix += ' FORMAT="%s"' % format
         return prefix
+
+    def on_conflict_suffix_sql(self, fields, on_conflict, update_fields, unique_fields):
+        # TiDB doesn't support row aliases (INSERT ... AS new ON DUPLICATE KEY
+        # UPDATE col = new.col), which Django uses for MySQL >= 8.4, so refer
+        # to the new values with VALUES() instead.
+        if on_conflict == OnConflict.UPDATE:
+            return "ON DUPLICATE KEY UPDATE %s" % ", ".join(
+                "%(field)s = VALUES(%(field)s)" % {"field": field}
+                for field in map(self.quote_name, update_fields)
+            )
+        return super().on_conflict_suffix_sql(
+            fields, on_conflict, update_fields, unique_fields
+        )
 
     def regex_lookup(self, lookup_type):
         # REGEXP BINARY doesn't work correctly in MySQL 8+ and REGEXP_LIKE

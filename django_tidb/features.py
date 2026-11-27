@@ -13,6 +13,7 @@
 
 import operator
 
+import django
 from django.db.backends.mysql.features import (
     DatabaseFeatures as MysqlDatabaseFeatures,
 )
@@ -41,11 +42,24 @@ class DatabaseFeatures(MysqlDatabaseFeatures):
 
     minimum_database_version = (5,)
 
+    # TiDB can't use the JSON null literal as a column default: it rejects
+    # JSON_EXTRACT() in default expressions (error 3770), which the MySQL
+    # backend uses for db_default=JSONNull().
+    # https://github.com/pingcap/tidb/issues/73714
+    supports_json_null_default = False
+
     @cached_property
     def supports_foreign_keys(self):
         if self.connection.tidb_version >= (6, 6, 0):
             return True
         return False
+
+    # ON DELETE CASCADE / SET NULL (on_delete=DB_CASCADE / DB_SET_NULL) need
+    # foreign key constraints.
+    supports_on_delete_db_cascade = property(
+        operator.attrgetter("supports_foreign_keys")
+    )
+    supports_on_delete_db_null = property(operator.attrgetter("supports_foreign_keys"))
 
     @cached_property
     def indexes_foreign_keys(self):
@@ -201,6 +215,8 @@ class DatabaseFeatures(MysqlDatabaseFeatures):
                 "model_fields.test_jsonfield.TestQuerying.test_lookups_special_chars_double_quotes",
                 # https://github.com/pingcap/tidb/issues/65334
                 "aggregation.tests.AggregateTestCase.test_any_value_aggregate_clause",
+                # This test relies on the implicit order of rows without ORDER BY.
+                "defer.tests.DeferTests.test_only_with_select_related",
                 # This test relies on MySQL's implicit physical scan order,
                 # which is an implementation detail rather than a guaranteed feature
                 # https://gist.github.com/wd0517/17b30fed4cdffd08a23d18038cee6bc3
@@ -251,6 +267,9 @@ class DatabaseFeatures(MysqlDatabaseFeatures):
                         "migrations.test_commands.MigrateTests.test_migrate_syncdb_deferred_sql_executed_with_schemaeditor",
                         "schema.tests.SchemaTests.test_rename_column_renames_deferred_sql_references",
                         "schema.tests.SchemaTests.test_rename_table_renames_deferred_sql_references",
+                        # These tests expect foreign key constraints to be created.
+                        "migrations.test_commands.MigrateTests.test_migrate_syncdb_installed_truncated_db_model",
+                        "migrations.test_operations.OperationTests.test_rename_model_with_self_referential_fk_collect_sql",
                     }
                 }
             )
@@ -271,6 +290,18 @@ class DatabaseFeatures(MysqlDatabaseFeatures):
                         # https://github.com/pingcap/tidb/issues/52350
                         "backends.mysql.test_introspection.TestCrossDatabaseRelations.test_omit_cross_database_relations",
                     }
+                }
+            )
+        if django.VERSION >= (6, 1) and not self.supports_json_null_default:
+            skips.update(
+                {
+                    # JSONNullDefaultModel isn't created in the test database
+                    # (see tidb_settings.py).
+                    # https://github.com/pingcap/tidb/issues/73714
+                    "json_null_default": {
+                        "model_fields.test_jsonfield.JSONNullTests.test_default",
+                        "model_fields.test_jsonfield.JSONNullTests.test_custom_jsonnull_encoder",
+                    },
                 }
             )
         if "ONLY_FULL_GROUP_BY" in self.connection.sql_mode:

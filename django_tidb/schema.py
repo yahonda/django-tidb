@@ -36,9 +36,19 @@ class DatabaseSchemaEditor(MysqlDatabaseSchemaEditor):
             return True
         return False
 
-    @property
-    def _supports_limited_data_type_defaults(self):
-        return False
+    def skip_default(self, field):
+        # TiDB doesn't support defaults for BLOB/TEXT/JSON columns, neither as
+        # literals nor as literal expressions such as DEFAULT ('x'), which
+        # Django uses for MySQL >= 8.4. Skip them and let add_field() simulate
+        # one-off defaults with an UPDATE.
+        if super().skip_default(field):
+            return True
+        return self._is_limited_data_type(field)
+
+    def _column_default_sql(self, field):
+        # Don't wrap BLOB/TEXT/JSON defaults in parentheses like MySQL does;
+        # they are skipped above.
+        return super(MysqlDatabaseSchemaEditor, self)._column_default_sql(field)
 
     def _field_should_be_indexed(self, model, field):
         if not field.db_index or field.unique:
